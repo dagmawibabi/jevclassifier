@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+
+@theme {
+	--font-sans: 'Sora', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+	--color-ink: #121212;
+	--color-paper: #f3f3f1;
+	--color-mute: #6e6e69;
+	--color-rule: #cfcfc9;
+	--color-soft: #e7e7e3;
+	--color-wash: #fafaf8;
+}
+
+html,
+body {
+	height: 100dvh;
+	overflow: hidden;
+	background: var(--color-paper);
+	color: var(--color-ink);
+	font-family: var(--font-sans);
+}
+
+body {
+	margin: 0;
+}
+
+::selection {
+	background: var(--color-ink);
+	color: var(--color-paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}

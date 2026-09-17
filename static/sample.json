@@ -1,0 +1,39 @@
+{
+  "name": "Sample channel",
+  "type": "public_channel",
+  "messages": [
+    {
+      "id": 8,
+      "type": "message",
+      "date": "2024-02-21T15:15:01",
+      "from": "Sample",
+      "text": "A simple Windows utility that shuts down a computer after a given number of minutes. Clone it from GitHub and add your own features.",
+      "reactions": [
+        { "type": "emoji", "count": 8, "emoji": "🔥" },
+        { "type": "emoji", "count": 3, "emoji": "👏" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "message",
+      "date": "2024-03-02T10:00:00",
+      "from": "Sample",
+      "text": "Remember your why. Keep going even when nobody is watching.",
+      "reactions": [
+        { "type": "emoji", "count": 12, "emoji": "❤" },
+        { "type": "emoji", "count": 2, "emoji": "😢" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "message",
+      "date": "2024-03-11T18:30:00",
+      "from": "Sample",
+      "text": "Hiring: React engineer in Addis. Remote OK. Send CV by Friday.",
+      "reactions": [
+        { "type": "emoji", "count": 4, "emoji": "👍" },
+        { "type": "emoji", "count": 1, "emoji": "😂" }
+      ]
+    }
+  ]
+}

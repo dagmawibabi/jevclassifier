@@ -1,0 +1,41 @@
+{
+  "name": "Sample group",
+  "type": "private_group",
+  "messages": [
+    {
+      "id": 1,
+      "type": "message",
+      "date": "2024-05-02T09:12:00",
+      "from": "Ada",
+      "from_id": "user1",
+      "text": "Can we move the standup to 11? I have a dentist slot at 10."
+    },
+    {
+      "id": 2,
+      "type": "message",
+      "date": "2024-05-02T09:13:22",
+      "from": "Niko",
+      "from_id": "user2",
+      "reply_to_message_id": 1,
+      "text": "Works for me. I’ll ping the rest of the team."
+    },
+    {
+      "id": 3,
+      "type": "message",
+      "date": "2024-05-02T19:41:08",
+      "from": "Ada",
+      "from_id": "user1",
+      "text": "That dinner last night was a lot of fun. Still smiling.",
+      "reactions": [{ "type": "emoji", "count": 1, "emoji": "❤" }]
+    },
+    {
+      "id": 4,
+      "type": "message",
+      "date": "2024-05-02T19:44:51",
+      "from": "Niko",
+      "from_id": "user2",
+      "reply_to_message_id": 3,
+      "text": "Same. Let’s do it again this weekend if you’re free."
+    }
+  ]
+}
