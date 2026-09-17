@@ -75,6 +75,7 @@
 	let channelName = $state('');
 	let fileName = $state('');
 	let running = $state(false);
+	let paused = $state(false);
 	let fileError = $state('');
 	let dragOver = $state(false);
 	let activeId = $state<number | null>(null);
@@ -112,19 +113,27 @@
 			limit
 		})
 	);
-	const finished = $derived(posts.filter((p) => p.status === 'done' || p.status === 'error').length);
+	const finished = $derived(
+		posts.filter((p) => p.status === 'done' || p.status === 'error').length
+	);
 	const doneCount = $derived(posts.filter((p) => p.status === 'done').length);
 	const errorCount = $derived(posts.filter((p) => p.status === 'error').length);
 	const viewing = $derived(
-		posts.find((p) => p.id === (selectedId ?? activeId)) ?? posts.find((p) => p.status === 'reading') ?? null
+		posts.find((p) => p.id === (selectedId ?? activeId)) ??
+			posts.find((p) => p.status === 'reading') ??
+			null
 	);
-	const viewingPerson = $derived(peopleReads.find((person) => person.name === selectedSpeaker) ?? null);
+	const viewingPerson = $derived(
+		peopleReads.find((person) => person.name === selectedSpeaker) ?? null
+	);
 	const asideQuestions = $derived(selectedSpeaker ? toneQuestions : questions);
 	const workTotal = $derived(posts.length + (isChat ? peopleReads.length : 0));
 	const workDone = $derived(
-		finished + peopleReads.filter((person) => person.status === 'done' || person.status === 'error').length
+		finished +
+			peopleReads.filter((person) => person.status === 'done' || person.status === 'error').length
 	);
 	const progress = $derived(workTotal ? workDone / workTotal : 0);
+	const busy = $derived(running || paused);
 	const totals = $derived.by(() => {
 		let input = 0;
 		let output = 0;
@@ -146,8 +155,11 @@
 		if (!firstChoice || firstChoice.type !== 'choice') return [];
 		const counts = new Map<string, number>();
 		for (const post of posts) {
-			const answer = post.classification?.answers[slug(firstChoice.id)] ?? post.classification?.answers[firstChoice.id];
-			if (answer?.type === 'choice') counts.set(answer.choice, (counts.get(answer.choice) ?? 0) + 1);
+			const answer =
+				post.classification?.answers[slug(firstChoice.id)] ??
+				post.classification?.answers[firstChoice.id];
+			if (answer?.type === 'choice')
+				counts.set(answer.choice, (counts.get(answer.choice) ?? 0) + 1);
 		}
 		return [...counts.entries()].map(([key, count]) => ({ key, count }));
 	});
@@ -184,7 +196,8 @@
 	}
 
 	function metersFor(question: QuestionConfig, classification: Classification | undefined) {
-		const answer = classification?.answers[slug(question.id)] ?? classification?.answers[question.id];
+		const answer =
+			classification?.answers[slug(question.id)] ?? classification?.answers[question.id];
 		if (question.type === 'choice') {
 			return choiceBars(answer?.type === 'choice' ? answer : undefined, question.options);
 		}
@@ -228,6 +241,7 @@
 		fileName = name;
 		abort?.abort();
 		running = false;
+		paused = false;
 		const parsed = parseChannelExport(data);
 		channelName = parsed.name;
 		chatType = parsed.type;
@@ -277,16 +291,20 @@
 	}
 
 	async function startRun() {
+		paused = false;
 		configOpen = false;
 		applySelection();
 		if (isChat) seedPeople();
 		await classifyAll(true);
+		if (paused) return;
 		if (isChat) await analyzeSpeakers();
 	}
 
 	async function resumeRun() {
+		paused = false;
 		configOpen = false;
 		await classifyAll();
+		if (paused) return;
 		if (isChat) await analyzeSpeakers();
 	}
 
@@ -295,8 +313,14 @@
 		abort?.abort();
 		abort = new AbortController();
 		if (force) {
-			posts = posts.map((post) => ({ ...post, status: 'queued', classification: undefined, error: undefined }));
+			posts = posts.map((post) => ({
+				...post,
+				status: 'queued',
+				classification: undefined,
+				error: undefined
+			}));
 		}
+		paused = false;
 		running = true;
 		startedAt = startedAt && finished > 0 && !force ? startedAt : Date.now();
 		let cursor = 0;
@@ -315,7 +339,7 @@
 	}
 
 	async function analyzeSpeakers() {
-		if (!abort || abort.signal.aborted) return;
+		if (paused || !abort || abort.signal.aborted) return;
 		if (!peopleReads.length) seedPeople();
 		const names = peopleReads.map((person) => person.name);
 		if (!names.length) return;
@@ -328,7 +352,11 @@
 				const name = names[index];
 				if (!name) continue;
 				if (peopleReads[index]?.status === 'done') continue;
-				await classifySpeaker(name, names.filter((other) => other !== name), abort.signal);
+				await classifySpeaker(
+					name,
+					names.filter((other) => other !== name),
+					abort.signal
+				);
 			}
 		});
 		await Promise.all(workers);
@@ -347,7 +375,9 @@
 			.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 		if (!mine.length) {
 			peopleReads = peopleReads.map((person) =>
-				person.name === name ? { ...person, status: 'error', error: 'No labeled messages.' } : person
+				person.name === name
+					? { ...person, status: 'error', error: 'No labeled messages.' }
+					: person
 			);
 			return;
 		}
@@ -378,7 +408,9 @@
 			if (response.status === 401) keyUi.open = true;
 			if (!response.ok) throw new Error(payload.error || `Classify failed (${response.status})`);
 			peopleReads = peopleReads.map((person) =>
-				person.name === name ? { ...person, status: 'done', classification: payload.classification } : person
+				person.name === name
+					? { ...person, status: 'done', classification: payload.classification }
+					: person
 			);
 		} catch (error) {
 			if (signal.aborted) {
@@ -406,7 +438,9 @@
 		posts[index] = { ...post, status: 'reading', error: undefined };
 		activeId = post.id;
 		queueMicrotask(() => {
-			feedEl?.querySelector(`[data-post="${post.id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+			feedEl
+				?.querySelector(`[data-post="${post.id}"]`)
+				?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 		});
 
 		try {
@@ -452,9 +486,22 @@
 		}
 	}
 
-	function stop() {
+	function pause() {
+		paused = true;
 		abort?.abort();
 		running = false;
+	}
+
+	function play() {
+		void resumeRun();
+	}
+
+	function stop() {
+		paused = false;
+		abort?.abort();
+		running = false;
+		configOpen = true;
+		activeId = null;
 	}
 
 	function download() {
@@ -506,6 +553,7 @@
 	function backToDrop() {
 		abort?.abort();
 		running = false;
+		paused = false;
 		archive = [];
 		posts = [];
 		channelName = '';
@@ -532,7 +580,9 @@
 	}
 </script>
 
-<main class="mx-auto grid h-full min-h-0 max-w-[1280px] grid-cols-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_360px] lg:overflow-hidden">
+<main
+	class="mx-auto grid h-full min-h-0 max-w-[1280px] grid-cols-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_360px] lg:overflow-hidden"
+>
 	<section class="flex min-h-0 flex-col overflow-hidden border-rule lg:border-r">
 		<div class="flex shrink-0 items-end justify-between gap-4 px-6 py-4">
 			<div>
@@ -560,7 +610,10 @@
 
 		<div class="px-6">
 			<div class="h-px w-full bg-rule">
-				<div class="h-px bg-ink transition-[width] duration-300" style:width="{progress * 100}%"></div>
+				<div
+					class="h-px bg-ink transition-[width] duration-300"
+					style:width="{progress * 100}%"
+				></div>
 			</div>
 		</div>
 
@@ -589,7 +642,9 @@
 						{activeQuestions.length} questions · {config.model}
 					</p>
 					<div class="mt-5 flex flex-wrap items-center gap-3">
-						<label class="cursor-pointer rounded-full bg-ink px-4 py-2 font-mono text-[11px] text-paper">
+						<label
+							class="cursor-pointer rounded-full bg-ink px-4 py-2 font-mono text-[11px] text-paper"
+						>
 							Choose JSON
 							<input
 								class="sr-only"
@@ -649,12 +704,12 @@
 										min="1"
 										max={archive.length}
 										bind:value={limit}
-										disabled={running}
+										disabled={busy}
 									/>
 								</label>
 								<label class="block">
 									<span class="font-mono text-[11px] text-mute">Order</span>
-									<select class="{fieldClass()} mt-1" bind:value={order} disabled={running}>
+									<select class="{fieldClass()} mt-1" bind:value={order} disabled={busy}>
 										<option value="newest">Newest first</option>
 										<option value="oldest">Oldest first</option>
 									</select>
@@ -667,7 +722,7 @@
 										min={bounds.min}
 										max={bounds.max}
 										bind:value={dateFrom}
-										disabled={running}
+										disabled={busy}
 									/>
 								</label>
 								<label class="block">
@@ -678,21 +733,21 @@
 										min={bounds.min}
 										max={bounds.max}
 										bind:value={dateTo}
-										disabled={running}
+										disabled={busy}
 									/>
 								</label>
 							</div>
 							<div class="mt-3 flex flex-wrap gap-4 font-mono text-[12px]">
 								<label class="flex items-center gap-2">
-									<input type="checkbox" bind:checked={requireText} disabled={running} />
+									<input type="checkbox" bind:checked={requireText} disabled={busy} />
 									Text required
 								</label>
 								<label class="flex items-center gap-2">
-									<input type="checkbox" bind:checked={requireReactions} disabled={running} />
+									<input type="checkbox" bind:checked={requireReactions} disabled={busy} />
 									Has reactions
 								</label>
 								<label class="flex items-center gap-2">
-									<input type="checkbox" bind:checked={skipForwards} disabled={running} />
+									<input type="checkbox" bind:checked={skipForwards} disabled={busy} />
 									Skip forwards
 								</label>
 							</div>
@@ -703,10 +758,12 @@
 										{#each people as person}
 											<button
 												type="button"
-												class="rounded-full border px-2 py-0.5 font-mono text-[11px] {speakers.includes(person)
+												class="rounded-full border px-2 py-0.5 font-mono text-[11px] {speakers.includes(
+													person
+												)
 													? 'border-ink bg-ink text-paper'
 													: 'border-rule'}"
-												disabled={running}
+												disabled={busy}
 												onclick={() => toggleSpeaker(person)}
 											>
 												{person}
@@ -718,14 +775,32 @@
 						{:else}
 							<p class="mt-2 font-mono text-[12px] text-mute">
 								{finished} of {posts.length} messages{#if isChat && peopleReads.length}
-									· {peopleReads.filter((person) => person.status === 'done').length} of {peopleReads.length} people{/if}
+									· {peopleReads.filter((person) => person.status === 'done').length} of {peopleReads.length}
+									people{/if}
 							</p>
 						{/if}
 						<div class="mt-4 flex flex-wrap gap-2">
-							{#if running}
+							{#if running || paused || (!configOpen && posts.length > 0 && workDone < workTotal)}
+								{#if running}
+									<button
+										type="button"
+										class="h-9 rounded-full bg-ink px-4 font-mono text-[11px] text-paper"
+										onclick={pause}
+									>
+										Pause
+									</button>
+								{:else}
+									<button
+										type="button"
+										class="h-9 rounded-full bg-ink px-4 font-mono text-[11px] text-paper"
+										onclick={play}
+									>
+										Play
+									</button>
+								{/if}
 								<button
 									type="button"
-									class="h-9 rounded-full bg-ink px-4 font-mono text-[11px] text-paper"
+									class="h-9 rounded-full border border-rule px-4 font-mono text-[11px]"
 									onclick={stop}
 								>
 									Stop
@@ -739,7 +814,7 @@
 								>
 									Classify {matching.length}
 								</button>
-								{#if posts.length && finished < posts.length}
+								{#if posts.length && workDone < workTotal}
 									<button
 										type="button"
 										class="h-9 rounded-full border border-rule px-4 font-mono text-[11px]"
@@ -748,14 +823,6 @@
 										Resume
 									</button>
 								{/if}
-							{:else if posts.length && finished < posts.length}
-								<button
-									type="button"
-									class="h-9 rounded-full border border-rule px-4 font-mono text-[11px]"
-									onclick={() => void resumeRun()}
-								>
-									Resume
-								</button>
 							{/if}
 						</div>
 					</div>
@@ -767,7 +834,8 @@
 								{#each peopleReads as person (person.name)}
 									<button
 										type="button"
-										class="w-full rounded-[4px] px-4 py-3 text-left transition-colors {person.name === selectedSpeaker
+										class="w-full rounded-[4px] px-4 py-3 text-left transition-colors {person.name ===
+										selectedSpeaker
 											? 'bg-white outline outline-1 outline-ink'
 											: 'hover:bg-soft'}"
 										onclick={() => {
@@ -775,9 +843,13 @@
 											selectedId = null;
 										}}
 									>
-										<div class="flex items-center justify-between gap-3 font-mono text-[11px] text-mute">
+										<div
+											class="flex items-center justify-between gap-3 font-mono text-[11px] text-mute"
+										>
 											<span class="text-ink">{person.name}</span>
-											<span>{posts.filter((post) => post.from === person.name).length} messages</span>
+											<span
+												>{posts.filter((post) => post.from === person.name).length} messages</span
+											>
 										</div>
 										<div class="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px]">
 											{#if person.status === 'reading'}
@@ -807,8 +879,8 @@
 							<button
 								type="button"
 								data-post={post.id}
-								class="w-full rounded-[4px] px-4 py-3 text-left transition-colors {post.id === viewing?.id &&
-								!selectedSpeaker
+								class="w-full rounded-[4px] px-4 py-3 text-left transition-colors {post.id ===
+									viewing?.id && !selectedSpeaker
 									? 'bg-white outline outline-1 outline-ink'
 									: 'hover:bg-soft'}"
 								onclick={() => {
@@ -816,7 +888,9 @@
 									selectedSpeaker = null;
 								}}
 							>
-								<div class="flex items-center justify-between gap-3 font-mono text-[11px] text-mute">
+								<div
+									class="flex items-center justify-between gap-3 font-mono text-[11px] text-mute"
+								>
 									<span>{post.from}</span>
 									<span>{formatDate(post.date)}</span>
 								</div>
@@ -824,7 +898,9 @@
 									{post.text || `Media: ${post.media}`}
 								</p>
 								{#if post.reactions.length}
-									<p class="mt-2 font-mono text-[11px] text-mute">{reactionSummary(post.reactions)}</p>
+									<p class="mt-2 font-mono text-[11px] text-mute">
+										{reactionSummary(post.reactions)}
+									</p>
 								{/if}
 								<div class="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px]">
 									{#if post.status === 'reading'}
@@ -865,12 +941,15 @@
 					{/if}
 					{#if running}
 						· streaming
+					{:else if paused}
+						· paused
 					{:else if doneCount}
-						· {doneCount} labeled{#if errorCount} · {errorCount} failed{/if}
+						· {doneCount} labeled{#if errorCount}
+							· {errorCount} failed{/if}
 					{/if}
 				</p>
 			</div>
-			{#if (selectedSpeaker ? viewingPerson?.classification : viewing?.classification)}
+			{#if selectedSpeaker ? viewingPerson?.classification : viewing?.classification}
 				{@const usage = selectedSpeaker ? viewingPerson?.classification : viewing?.classification}
 				<p class="text-right font-mono text-[11px] text-mute">
 					{formatTokens(usage?.usage.inputTokens)} in<br />
@@ -927,7 +1006,8 @@
 					<div class="flex flex-wrap gap-1.5">
 						{#each mix as item}
 							<span class="rounded-full border border-rule px-2 py-0.5 font-mono text-[11px]">
-								{item.key} {item.count}
+								{item.key}
+								{item.count}
 							</span>
 						{/each}
 					</div>

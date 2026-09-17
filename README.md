@@ -9,6 +9,7 @@ A local web app that classifies Telegram Desktop JSON exports with [Jev](https:/
 - Tag a public channel by intent (tech, promo, news, and so on), quality, sentiment, and reaction tone
 - Read a private chat or group for topic, intention, and emotion, plus a per-speaker tone summary
 - Prototype custom classifiers (choice, score, or boolean) without writing a new pipeline
+- Chat on **LLM**: Jev answers by choosing the next word from a 10k English dictionary with definitions
 
 ## How to use
 
@@ -24,7 +25,7 @@ pnpm run dev
 3. Add a key in **Key** (browser) or in `.env`:
    - [Vercel AI Gateway](https://vercel.com/ai-gateway): `AI_GATEWAY_API_KEY`
    - [TypeSafe](https://console.typesafe.ai/settings/keys): `JEV_API_KEY`
-4. Open **Run** for a channel, or **Duel/Group** for a chat. Drop `result.json`, set date/limit filters, then classify.
+4. Open **Run** for a channel, or **Duel/Group** for a chat. Drop `result.json`, set date/limit filters, then classify. **LLM** is a chat that walks the dictionary one word at a time; the sidebar shows the top 15 probabilities for the latest choice.
 5. Edit questions, model, concurrency, and retries on **Settings**.
 
 `pnpm run build` / `pnpm run preview` produce and serve a production build.

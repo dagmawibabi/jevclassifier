@@ -37,7 +37,10 @@
 			<nav class="flex items-center gap-4 font-mono text-[11px]">
 				<a class={path === '/' ? 'text-ink' : 'text-mute'} href="/">Run</a>
 				<a class={path.startsWith('/duel') ? 'text-ink' : 'text-mute'} href="/duel">Duel/Group</a>
-				<a class={path.startsWith('/settings') ? 'text-ink' : 'text-mute'} href="/settings">Settings</a>
+				<a class={path.startsWith('/llm') ? 'text-ink' : 'text-mute'} href="/llm">LLM</a>
+				<a class={path.startsWith('/settings') ? 'text-ink' : 'text-mute'} href="/settings"
+					>Settings</a
+				>
 				<button
 					type="button"
 					class={keyReady ? 'text-ink' : 'text-mute'}
